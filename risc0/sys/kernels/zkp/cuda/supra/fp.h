@@ -24,6 +24,6 @@ static __device__ bb31_t inv(bb31_t a) {
   return a.reciprocal();
 }
 
-typedef bb31_t Fp;
-typedef bb31_4_t Fp4;
-typedef bb31_4_t FpExt;
+using Fp = bb31_t;
+using Fp4 = bb31_4_t;
+using FpExt = bb31_4_t;

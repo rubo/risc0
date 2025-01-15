@@ -17,9 +17,54 @@
 #include "cuda.h"
 #include "supra/fp.h"
 
+
 #include <exception>
 
 namespace risc0::circuit::keccak::cuda {
+using MutableBuf = const Fp*;
+using GlobalBuf = const Fp*;
+using GlobalExtBuf = const FpExt*;
+using ExtVal = FpExt;
+using Val = Fp;
+using Index = size_t;
+
+
+constexpr bool kDebug = false;
+using BCPtr = const uint8_t*;
+
+constexpr size_t kInvRate = 4;
+
+template<size_t N>
+__device__ inline size_t readBits(BCPtr& bc) {
+  assert((N % 8) == 0);
+  size_t bytes = N / 8;
+  size_t result = 0;
+  
+  for (size_t i = 0; i != bytes; i ++) {
+    result += (*bc++) << (i*8);
+  }
+  if (kDebug) { printf(" decoded %lu\n", result); }
+  return result;
+}
+
+
+#define zllGet(REG,BACK,BUF) ((BUF)[(REG) * steps + ((cycle - kInvRate * (BACK)) & mask)]);
+#define zllGetGlobal(REG,BUF) ((BUF)[(REG)])
+#define zllSub(X,Y) ((X) - (Y))
+#define zllAdd(X,Y) ((X) + (Y))
+#define zllMul(X,Y) ((X) * (Y))
+#define debugOut(X) do{}while(0)
+#define debugIn(X) do{}while(0)
+
+__device__ inline Fp zllConst(uint32_t a) {
+  return Fp(a);
+}
+
+__device__ inline FpExt zllConst(uint32_t a, uint32_t b, uint32_t c , uint32_t d ) {
+  return FpExt(a, b, c, d);
+}
+    
+#include "eval_check_bc.cu.inc"
 
 __constant__ FpExt poly_mix[kNumPolyMixPows];
 
@@ -34,7 +79,7 @@ __global__ void eval_check(Fp* check,
                            uint32_t domain) {
   uint32_t cycle = blockDim.x * blockIdx.x + threadIdx.x;
   if (cycle < domain) {
-    FpExt tot = poly_fp(cycle, domain, ctrl, out, data, mix, accum);
+    FpExt tot = keccak(cycle, domain, data, out, poly_mix);
     Fp x = pow(rou, cycle);
     Fp y = pow(Fp(3) * x, 1 << po2);
     FpExt ret = tot * inv(y - Fp(1));

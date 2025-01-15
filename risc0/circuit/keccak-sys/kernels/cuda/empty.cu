@@ -15,3 +15,5 @@
 /// rust's cc::Build needs more than one .cu file to pass the proper
 /// options to the cuda compiler, so this file can be used as a
 /// placeholder if we only need to compile a single .cu file.
+
+int fooz = 5;

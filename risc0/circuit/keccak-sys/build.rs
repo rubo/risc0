@@ -69,6 +69,10 @@ fn build_cuda_kernels() {
         .flag("-std=c++17")
         .flag("-Xcompiler")
         .flag("-Wno-unused-function,-Wno-unused-parameter")
+        .flag("-lineinfo")
+        .flag("--resource-usage")
+        .flag("-Xptxas=-v")
+        .opt_level(3)
         .include(env::var("DEP_RISC0_SYS_CUDA_ROOT").unwrap())
         .include(env::var("DEP_SPPARK_ROOT").unwrap());
     if env::var_os("NVCC_PREPEND_FLAGS").is_none() && env::var_os("NVCC_APPEND_FLAGS").is_none() {

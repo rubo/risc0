@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "buffers.h"
 #include "fp.h"
 #include "fpext.h"
 
+#include <cassert>
 #include <cstdint>
 #include <cstdio>
 #include <exception>
@@ -22,16 +24,81 @@
 
 using namespace risc0;
 
-namespace risc0::circuit::keccak {
+namespace {
 
-FpExt poly_fp(size_t cycle, size_t steps, FpExt* poly_mix, Fp** args);
+constexpr bool kDebug = false;
+using BCPtr = const uint8_t*;
 
-} // namespace risc0::circuit::keccak
+constexpr size_t kInvRate = 4;
+
+template <size_t N> inline size_t readBits(BCPtr& bc) {
+  assert((N % 8) == 0);
+  size_t bytes = N / 8;
+  size_t result = 0;
+
+  for (size_t i = 0; i != bytes; i++) {
+    result += (*bc++) << (i * 8);
+  }
+  if (kDebug) {
+    printf(" decoded %luu%lu\n", result, N);
+  }
+  return result;
+}
+
+void printDebug(const char* label, Fp fpVal) {
+  printf(" %3s:  %u\n", label, fpVal.asUInt32());
+}
+
+void printDebug(const char* label, FpExt extVal) {
+  uint32_t a = extVal.elems[0].asUInt32();
+  uint32_t b = extVal.elems[1].asUInt32();
+  uint32_t c = extVal.elems[2].asUInt32();
+  uint32_t d = extVal.elems[3].asUInt32();
+  printf(" %3s:  [%u, %u, %u, %u]\n", label, a, b, c, d);
+}
+
+template <typename T> void debugIn(T val) {
+  printDebug("in", val);
+}
+template <typename T> void debugOut(T val) {
+  printDebug("out", val);
+}
+
+namespace impl {
+
+using MutableBuf = Fp*;
+using GlobalBuf = Fp*;
+using GlobalExtBuf = FpExt*;
+using ExtVal = FpExt;
+using Val = Fp;
+using Index = size_t;
+
+#define zllGet(REG, BACK, BUF) ((BUF)[(REG) * steps + ((cycle - kInvRate * (BACK)) & mask)]);
+#define zllGetGlobal(REG, BUF) ((BUF)[(REG)])
+#define zllSub(X, Y) ((X) - (Y))
+#define zllAdd(X, Y) ((X) + (Y))
+#define zllMul(X, Y) ((X) * (Y))
+
+Fp zllConst(size_t a) {
+  return Fp(a);
+}
+
+FpExt zllConst(size_t a, size_t b, size_t c, size_t d) {
+  return FpExt(a, b, c, d);
+}
+
+#include "poly_fp_bc.cpp.inc"
+
+} // namespace impl
+
+} // namespace
 
 extern "C" const char* risc0_circuit_keccak_cpu_poly_fp(
     size_t cycle, size_t steps, FpExt* poly_mix, Fp** args, FpExt* result) {
   try {
-    *result = circuit::keccak::poly_fp(cycle, steps, poly_mix, args);
+    Fp* data = args[0];
+    Fp* out = args[1];
+    *result = impl::keccak(cycle, steps, data, out, poly_mix);
   } catch (const std::exception& err) {
     return strdup(err.what());
   }
