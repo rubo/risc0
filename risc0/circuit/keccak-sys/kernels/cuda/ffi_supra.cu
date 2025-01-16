@@ -16,9 +16,8 @@
 
 #include "cuda.h"
 #include "supra/fp.h"
-
-
 #include <exception>
+#include <iostream>
 
 namespace risc0::circuit::keccak::cuda {
 using MutableBuf = const Fp*;
@@ -28,42 +27,43 @@ using ExtVal = FpExt;
 using Val = Fp;
 using Index = size_t;
 
-
 constexpr bool kDebug = false;
 using BCPtr = const uint8_t*;
 
 constexpr size_t kInvRate = 4;
 
-template<size_t N>
-__device__ inline size_t readBits(BCPtr& bc) {
+template <size_t N> __device__ inline size_t readBits(BCPtr& bc, const char* label) {
   assert((N % 8) == 0);
   size_t bytes = N / 8;
   size_t result = 0;
-  
-  for (size_t i = 0; i != bytes; i ++) {
-    result += (*bc++) << (i*8);
+
+  for (size_t i = 0; i != bytes; i++) {
+    result += (*bc++) << (i * 8);
   }
-  if (kDebug) { printf(" decoded %lu\n", result); }
+  if (kDebug) {
+    printf(" decoded %lu (%s)\n", result, label);
+  }
   return result;
 }
 
+template <typename T, size_t N> __device__ inline T& getFromTemp(T (&tempBuf)[N], size_t idx) {
+  assert(idx < N);
+  return tempBuf[idx];
+}
 
-#define zllGet(REG,BACK,BUF) ((BUF)[(REG) * steps + ((cycle - kInvRate * (BACK)) & mask)]);
-#define zllGetGlobal(REG,BUF) ((BUF)[(REG)])
-#define zllSub(X,Y) ((X) - (Y))
-#define zllAdd(X,Y) ((X) + (Y))
-#define zllMul(X,Y) ((X) * (Y))
+#define zllGet(BUF, OFFSET, BACK) ((BUF)[(OFFSET) * steps + ((cycle - kInvRate * (BACK)) & mask)]);
+#define zllGetGlobal(BUF, OFFSET) ((BUF)[(OFFSET)])
+#define debugIn(X) (X)
 #define debugOut(X) do{}while(0)
-#define debugIn(X) do{}while(0)
 
-__device__ inline Fp zllConst(uint32_t a) {
+__device__ inline Fp zllConst(int a) {
   return Fp(a);
 }
 
-__device__ inline FpExt zllConst(uint32_t a, uint32_t b, uint32_t c , uint32_t d ) {
+__device__ inline FpExt zllConst(int a, int b, int c, int d) {
   return FpExt(a, b, c, d);
 }
-    
+
 #include "eval_check_bc.cu.inc"
 
 __constant__ FpExt poly_mix[kNumPolyMixPows];
@@ -77,16 +77,22 @@ __global__ void eval_check(Fp* check,
                            const Fp rou,
                            uint32_t po2,
                            uint32_t domain) {
-  uint32_t cycle = blockDim.x * blockIdx.x + threadIdx.x;
-  if (cycle < domain) {
-    FpExt tot = keccak(cycle, domain, data, out, poly_mix);
-    Fp x = pow(rou, cycle);
-    Fp y = pow(Fp(3) * x, 1 << po2);
-    FpExt ret = tot * inv(y - Fp(1));
-    check[domain * 0 + cycle] = ret[0];
-    check[domain * 1 + cycle] = ret[1];
-    check[domain * 2 + cycle] = ret[2];
-    check[domain * 3 + cycle] = ret[3];
+  uint32_t cudaCycle = blockDim.x * blockIdx.x + threadIdx.x;
+  if (kDebug) {
+    if (cudaCycle != 0) return;
+  }
+  for (uint32_t cycle = cudaCycle; cycle != domain; ++cudaCycle) {
+    if (cycle < domain) {
+      FpExt tot = keccak(cycle, domain, data, out, poly_mix);
+      Fp x = pow(rou, cycle);
+      Fp y = pow(Fp(3) * x, 1 << po2);
+      FpExt ret = tot * inv(y - Fp(1));
+      check[domain * 0 + cycle] = ret[0];
+      check[domain * 1 + cycle] = ret[1];
+      check[domain * 2 + cycle] = ret[2];
+      check[domain * 3 + cycle] = ret[3];
+    }
+    if (!kDebug) break;
   }
 }
 

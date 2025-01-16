@@ -19,8 +19,10 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdio>
+#include <array>
 #include <exception>
 #include <string.h>
+#include <mutex>
 
 using namespace risc0;
 
@@ -31,7 +33,7 @@ using BCPtr = const uint8_t*;
 
 constexpr size_t kInvRate = 4;
 
-template <size_t N> inline size_t readBits(BCPtr& bc) {
+template <size_t N> inline size_t readBits(BCPtr& bc, const char* label) {
   assert((N % 8) == 0);
   size_t bytes = N / 8;
   size_t result = 0;
@@ -40,7 +42,7 @@ template <size_t N> inline size_t readBits(BCPtr& bc) {
     result += (*bc++) << (i * 8);
   }
   if (kDebug) {
-    printf(" decoded %luu%lu\n", result, N);
+    printf(" decoded %luu%lu (%s)\n", result, N, label);
   }
   return result;
 }
@@ -57,11 +59,19 @@ void printDebug(const char* label, FpExt extVal) {
   printf(" %3s:  [%u, %u, %u, %u]\n", label, a, b, c, d);
 }
 
-template <typename T> void debugIn(T val) {
-  printDebug("in", val);
+template <typename T> T debugIn(T val) {
+  if (kDebug) {
+    printDebug("in", val);
+  }
+  return val;
 }
 template <typename T> void debugOut(T val) {
   printDebug("out", val);
+}
+
+template<typename T, size_t N> T& getFromTemp(T (&tempBuf)[N], size_t idx) {
+  assert(idx < N);
+  return tempBuf[idx];
 }
 
 namespace impl {
@@ -73,11 +83,8 @@ using ExtVal = FpExt;
 using Val = Fp;
 using Index = size_t;
 
-#define zllGet(REG, BACK, BUF) ((BUF)[(REG) * steps + ((cycle - kInvRate * (BACK)) & mask)]);
-#define zllGetGlobal(REG, BUF) ((BUF)[(REG)])
-#define zllSub(X, Y) ((X) - (Y))
-#define zllAdd(X, Y) ((X) + (Y))
-#define zllMul(X, Y) ((X) * (Y))
+#define zllGet(BUF, OFFSET, BACK) ((BUF)[(OFFSET) * steps + ((cycle - kInvRate * (BACK)) & mask)]);
+#define zllGetGlobal(BUF, OFFSET) ((BUF)[(OFFSET)])
 
 Fp zllConst(size_t a) {
   return Fp(a);
@@ -98,7 +105,13 @@ extern "C" const char* risc0_circuit_keccak_cpu_poly_fp(
   try {
     Fp* data = args[0];
     Fp* out = args[1];
-    *result = impl::keccak(cycle, steps, data, out, poly_mix);
+    if (kDebug) {
+      static std::mutex mu;
+      std::lock_guard<std::mutex> l(mu);
+      *result = impl::keccak(cycle, steps, data, out, poly_mix);
+    } else {
+      *result = impl::keccak(cycle, steps, data, out, poly_mix);
+    }
   } catch (const std::exception& err) {
     return strdup(err.what());
   }

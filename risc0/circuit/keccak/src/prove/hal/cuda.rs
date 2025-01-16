@@ -107,9 +107,6 @@ impl<CH: CudaHash> CircuitWitnessGenerator<CudaHal<CH>> for CudaCircuitHal<CH> {
         global: &MetaBuffer<CudaHal<CH>>,
         data: &MetaBuffer<CudaHal<CH>>,
     ) -> Result<()> {
-        if mode != StepMode::SeqForward {
-            return Ok(());
-        }
         scope!("witgen");
 
         let cycles = preflight.cycle;
