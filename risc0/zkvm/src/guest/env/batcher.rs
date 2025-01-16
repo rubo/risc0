@@ -24,6 +24,8 @@ use risc0_zkvm_platform::syscall::{
     sys_getenv, sys_keccak, sys_prove_keccak, sys_sha_compress, DIGEST_WORDS,
 };
 
+use crate::mmr::Mmr;
+
 /// This struct implements the batching of calls to the keccak accelerator.
 #[derive(Debug)]
 pub struct Keccak2Batcher {
@@ -31,6 +33,7 @@ pub struct Keccak2Batcher {
     inputs: vec::Vec<KeccakState>,
     po2: u32,
     max_inputs: usize,
+    mmr: Mmr,
 }
 
 impl Keccak2Batcher {
@@ -72,6 +75,7 @@ impl Keccak2Batcher {
             inputs: vec![],
             po2,
             max_inputs,
+            mmr: Mmr::default(),
         }
     }
 
@@ -106,9 +110,16 @@ impl Keccak2Batcher {
                 input.len(),
             );
         }
-        crate::guest::env::verify_assumption(claim_digest, KECCAK_CONTROL_ROOT).unwrap();
+        self.mmr.insert(claim_digest);
 
         self.reset();
+    }
+
+    pub fn final_finalize(&mut self) {
+        if !self.inputs.is_empty() {
+            let claim_digest = self.mmr.root().unwrap();
+            crate::guest::env::verify_assumption(claim_digest, KECCAK_CONTROL_ROOT).unwrap();
+        }
     }
 
     fn claim_digest(&self) -> Digest {
