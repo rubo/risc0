@@ -61,9 +61,8 @@ impl Syscall for SysProveKeccak {
         };
 
         ctx.syscall_table()
-            .assumptions
+            .mmr_assumptions
             .borrow_mut()
-            .0
             .push(AssumptionReceipt::Unresolved(assumption));
 
         let metric = &mut ctx.syscall_table().metrics.borrow_mut()[SyscallKind::ProveKeccak];

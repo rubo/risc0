@@ -111,7 +111,6 @@ impl Keccak2Batcher {
             );
         }
         self.mmr.insert(claim_digest);
-
         self.reset();
     }
 
