@@ -14,7 +14,7 @@
 
 use std::{fs, path::Path, process::Command};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use cargo_metadata::MetadataCommand;
 use docker_generate::DockerFile;
 use risc0_binfmt::{MemoryImage, Program};
@@ -143,15 +143,22 @@ fn create_dockerfile(
         build_args.push(&features_str);
     }
 
-    let fetch_cmd = [&["cargo", "+risc0", "fetch"], common_args.as_slice()]
+    let rzup = rzup::Rzup::new()?;
+    let (_, toolchain_path) = rzup
+        .get_default_version(&rzup::Component::RustToolchain)?
+        .expect("Risc Zero Rust toolchain installed");
+
+    let cargo_path = toolchain_path.join("bin/cargo");
+    let cargo = cargo_path
+        .to_str()
+        .ok_or_else(|| anyhow!("invalid UTF-8 path"))?;
+
+    let fetch_cmd = [&[cargo, "fetch"], common_args.as_slice()]
         .concat()
         .join(" ");
-    let build_cmd = [
-        &["cargo", "+risc0", "build", "--release"],
-        build_args.as_slice(),
-    ]
-    .concat()
-    .join(" ");
+    let build_cmd = [&[cargo, "build", "--release"], build_args.as_slice()]
+        .concat()
+        .join(" ");
 
     let mut build = DockerFile::new()
         .from_alias("build", "risczero/risc0-guest-builder:r0.1.81.0")

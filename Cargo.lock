@@ -4272,6 +4272,7 @@ dependencies = [
  "risc0-binfmt",
  "risc0-zkp",
  "risc0-zkvm-platform",
+ "rzup",
  "serde",
  "serde_json",
  "tempfile",
