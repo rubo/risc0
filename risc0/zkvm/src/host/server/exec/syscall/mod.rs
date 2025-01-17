@@ -28,6 +28,7 @@ mod prove_zkr;
 mod random;
 mod slice_io;
 mod verify;
+mod verify2;
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
@@ -39,7 +40,7 @@ use risc0_zkvm_platform::syscall::{
     nr::{
         SYS_ARGC, SYS_ARGV, SYS_CYCLE_COUNT, SYS_FORK, SYS_GETENV, SYS_KECCAK, SYS_LOG, SYS_PANIC,
         SYS_PIPE, SYS_PROVE_KECCAK, SYS_PROVE_ZKR, SYS_RANDOM, SYS_READ, SYS_VERIFY_INTEGRITY,
-        SYS_WRITE,
+        SYS_VERIFY_INTEGRITY2, SYS_WRITE,
     },
     SyscallName, DIGEST_BYTES,
 };
@@ -56,7 +57,7 @@ use self::{
     args::SysArgs, cycle_count::SysCycleCount, fork::SysFork, getenv::SysGetenv, keccak::SysKeccak,
     log::SysLog, panic::SysPanic, pipe::SysPipe, posix_io::SysRead, posix_io::SysWrite,
     prove_keccak::SysProveKeccak, prove_zkr::SysProveZkr, random::SysRandom, slice_io::SysSliceIo,
-    verify::SysVerify,
+    verify::SysVerify, verify2::SysVerify2,
 };
 
 /// A host-side implementation of a system call.
@@ -119,6 +120,7 @@ pub(crate) enum SyscallKind {
     ProveKeccak,
     Read,
     VerifyIntegrity,
+    VerifyIntegrity2,
     Write,
 }
 
@@ -173,6 +175,7 @@ impl<'a> SyscallTable<'a> {
             .with_syscall(SYS_RANDOM, SysRandom)
             .with_syscall(SYS_READ, SysRead)
             .with_syscall(SYS_VERIFY_INTEGRITY, SysVerify)
+            .with_syscall(SYS_VERIFY_INTEGRITY2, SysVerify2)
             .with_syscall(SYS_WRITE, SysWrite);
         for (syscall, handler) in env.slice_io.borrow().inner.iter() {
             let handler = SysSliceIo::new(handler.clone());

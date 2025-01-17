@@ -32,7 +32,7 @@ fn main() {
             input.len(),
         );
     }
-    env::verify_assumption(claim_digest, KECCAK_CONTROL_ROOT).unwrap();
+    env::verify_assumption2(claim_digest, KECCAK_CONTROL_ROOT).unwrap();
 }
 
 fn generate_input(po2: usize) -> Vec<KeccakState> {
