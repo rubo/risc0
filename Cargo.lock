@@ -4612,6 +4612,7 @@ dependencies = [
  "rmp-serde",
  "rrs-lib",
  "rustc-demangle",
+ "rzup",
  "semver",
  "serde",
  "serde_json",
