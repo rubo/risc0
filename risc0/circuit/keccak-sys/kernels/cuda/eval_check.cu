@@ -20,19 +20,21 @@
 #include <iostream>
 
 namespace risc0::circuit::keccak::cuda {
+
 using MutableBuf = const Fp*;
 using GlobalBuf = const Fp*;
 using GlobalExtBuf = const FpExt*;
 using ExtVal = FpExt;
 using Val = Fp;
 using Index = size_t;
+using MixState = FpExt;
 
 constexpr bool kDebug = false;
-using BCPtr = const uint8_t*;
+__constant__ FpExt poly_mix[kNumPolyMixPows];
 
 constexpr size_t kInvRate = 4;
 
-template <size_t N> __device__ inline size_t readBits(BCPtr& bc, const char* label) {
+template <size_t N> __device__ __inline__ size_t readBits(const uint8_t* &bc, const char* label) {
   assert((N % 8) == 0);
   size_t bytes = N / 8;
   size_t result = 0;
@@ -46,7 +48,7 @@ template <size_t N> __device__ inline size_t readBits(BCPtr& bc, const char* lab
   return result;
 }
 
-template <typename T, size_t N> __device__ inline T& getFromTemp(T (&tempBuf)[N], size_t idx) {
+template <typename T, size_t N> __device__ __inline__ T& getFromTemp(T (&tempBuf)[N], size_t idx) {
   assert(idx < N);
   return tempBuf[idx];
 }
@@ -54,19 +56,40 @@ template <typename T, size_t N> __device__ inline T& getFromTemp(T (&tempBuf)[N]
 #define zllGet(BUF, OFFSET, BACK) ((BUF)[(OFFSET) * steps + ((cycle - kInvRate * (BACK)) & mask)]);
 #define zllGetGlobal(BUF, OFFSET) ((BUF)[(OFFSET)])
 #define debugIn(X) (X)
-#define debugOut(X) do{}while(0)
+#define debugOut(X)                                                                                \
+  do {                                                                                             \
+  } while (0)
 
-__device__ inline Fp zllConst(int a) {
+__device__ __inline__ Fp zllConst(int a) {
   return Fp(a);
 }
 
-__device__ inline FpExt zllConst(int a, int b, int c, int d) {
+__device__ __inline__ FpExt zllConst(int a, int b, int c, int d) {
   return FpExt(a, b, c, d);
 }
 
-#include "eval_check_bc.cu.inc"
+__device__ __inline__ FpExt trivialConstraint() {
+  return FpExt(0, 0, 0, 0);
+}
 
-__constant__ FpExt poly_mix[kNumPolyMixPows];
+__device__ __inline__ FpExt zllAndEqz(FpExt inMix, Fp val, size_t mixPowIndex) {
+  return inMix + val * poly_mix[mixPowIndex];
+}
+
+__device__ __inline__ FpExt zllAndEqz(FpExt inMix, FpExt val, size_t mixPowIndex) {
+  return inMix + val * poly_mix[mixPowIndex];
+}
+
+__device__ __inline__ FpExt zllAndCond(FpExt inMix, Fp cond, FpExt innerMix, size_t mixPowIndex) {
+  return inMix + cond * innerMix * poly_mix[mixPowIndex];
+}
+
+__device__ __inline__ FpExt
+zllAndCond(FpExt inMix, FpExt cond, FpExt innerMix, size_t mixPowIndex) {
+  return inMix + cond * innerMix * poly_mix[mixPowIndex];
+}
+
+#include "eval_check_bc.cu.inc"
 
 __global__ void eval_check(Fp* check,
                            const Fp* ctrl,
@@ -79,7 +102,8 @@ __global__ void eval_check(Fp* check,
                            uint32_t domain) {
   uint32_t cudaCycle = blockDim.x * blockIdx.x + threadIdx.x;
   if (kDebug) {
-    if (cudaCycle != 0) return;
+    if (cudaCycle != 0)
+      return;
   }
   for (uint32_t cycle = cudaCycle; cycle != domain; ++cudaCycle) {
     if (cycle < domain) {
@@ -92,7 +116,8 @@ __global__ void eval_check(Fp* check,
       check[domain * 2 + cycle] = ret[2];
       check[domain * 3 + cycle] = ret[3];
     }
-    if (!kDebug) break;
+    if (!kDebug)
+      break;
   }
 }
 

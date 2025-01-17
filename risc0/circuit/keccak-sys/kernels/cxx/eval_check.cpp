@@ -82,9 +82,12 @@ using GlobalExtBuf = FpExt*;
 using ExtVal = FpExt;
 using Val = Fp;
 using Index = size_t;
+using MixState = FpExt;
 
 #define zllGet(BUF, OFFSET, BACK) ((BUF)[(OFFSET) * steps + ((cycle - kInvRate * (BACK)) & mask)]);
 #define zllGetGlobal(BUF, OFFSET) ((BUF)[(OFFSET)])
+#define zllAndEqz(IN, VAL, MIX_POW) zllAndEqzImpl(IN, VAL, MIX_POW, polyMix2)
+#define zllAndCond(IN, COND, INNER, MIX_POW) zllAndCondImpl(IN, COND, INNER, MIX_POW, polyMix2)
 
 Fp zllConst(size_t a) {
   return Fp(a);
@@ -92,6 +95,27 @@ Fp zllConst(size_t a) {
 
 FpExt zllConst(size_t a, size_t b, size_t c, size_t d) {
   return FpExt(a, b, c, d);
+}
+
+FpExt trivialConstraint() {
+  return FpExt(0, 0, 0, 0);
+}
+
+FpExt zllAndEqzImpl(FpExt inMix, Fp val, size_t mixPowIndex, const FpExt* polyMix) {
+  return inMix + val * polyMix[mixPowIndex];
+}
+
+FpExt zllAndEqzImpl(FpExt inMix, FpExt val, size_t mixPowIndex, const FpExt* polyMix) {
+  return inMix + val * polyMix[mixPowIndex];
+}
+
+FpExt zllAndCondImpl(FpExt inMix, Fp cond, FpExt innerMix, size_t mixPowIndex, const FpExt* polyMix) {
+  return inMix + cond * innerMix * polyMix[mixPowIndex];
+}
+
+FpExt
+zllAndCondImpl(FpExt inMix, FpExt cond, FpExt innerMix, size_t mixPowIndex, const FpExt* polyMix) {
+  return inMix + cond * innerMix * polyMix[mixPowIndex];
 }
 
 #include "poly_fp_bc.cpp.inc"
@@ -105,13 +129,7 @@ extern "C" const char* risc0_circuit_keccak_cpu_poly_fp(
   try {
     Fp* data = args[0];
     Fp* out = args[1];
-    if (kDebug) {
-      static std::mutex mu;
-      std::lock_guard<std::mutex> l(mu);
-      *result = impl::keccak(cycle, steps, data, out, poly_mix);
-    } else {
-      *result = impl::keccak(cycle, steps, data, out, poly_mix);
-    }
+    *result = impl::keccak(cycle, steps, data, out, poly_mix);
   } catch (const std::exception& err) {
     return strdup(err.what());
   }
