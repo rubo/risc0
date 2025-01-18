@@ -64,6 +64,20 @@ fn prove_nothing_succinct() {
 }
 
 #[test]
+fn keccak_union() {
+    let env = ExecutorEnv::builder()
+        .write(&MultiTestSpec::KeccakUnion)
+        .unwrap()
+        .build()
+        .unwrap();
+    let opts = ProverOpts::succinct();
+    get_prover_server(&opts)
+        .unwrap()
+        .prove(env, MULTI_TEST_ELF)
+        .unwrap();
+}
+
+#[test]
 fn hashfn_poseidon2() {
     prove_nothing("poseidon2").unwrap();
 }
