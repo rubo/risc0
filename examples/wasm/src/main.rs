@@ -15,9 +15,9 @@
 use risc0_zkvm::{default_prover, ExecutorEnv};
 use wasm_methods::{WASM_INTERP_ELF, WASM_INTERP_ID};
 
-fn wat2wasm(wat: &str) -> Result<Vec<u8>, wat::Error> {
-    wat::parse_str(wat)
-}
+// fn wat2wasm(wat: &str) -> Result<Vec<u8>, wat::Error> {
+//     wat::parse_str(wat)
+// }
 
 fn run_guest(path: &str) -> i32 {
     let wasm = std::fs::read(path).expect("File inaccessible");
