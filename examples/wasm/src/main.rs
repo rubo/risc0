@@ -20,10 +20,8 @@ fn wat2wasm(wat: &str) -> Result<Vec<u8>, wat::Error> {
 }
 
 fn run_guest(path: &str) -> i32 {
-    let wat = std::fs::read_to_string(path).expect("File inaccessible");
-
-    let wasm = wat2wasm(&wat).expect("Failed to parse_str");
-
+    let wasm = std::fs::read(path).expect("File inaccessible");
+    let iters = 10;
     let env = ExecutorEnv::builder()
         .write(&wasm)
         .unwrap()
@@ -49,7 +47,7 @@ fn run_guest(path: &str) -> i32 {
 fn main() {
     //let fib_iters: i32 = 100;
     let path = std::env::args().nth(1).expect("no path given");
-    let _ = run_guest(fib_iters);
+    let _ = run_guest(&path);
 }
 
 // #[cfg(test)]
