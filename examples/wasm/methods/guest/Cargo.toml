@@ -10,3 +10,4 @@ risc0-zkvm = { path = "../../../../risc0/zkvm", default-features = false, featur
   "std",
 ] }
 wasmi = "0.31"
+wasmtime = "29.0.1"

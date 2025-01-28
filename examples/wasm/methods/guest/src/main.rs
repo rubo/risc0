@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use risc0_zkvm::guest::env;
-use wasmi::{Engine, Linker, Module, Store};
+use wasmtime::*;
 
 fn main() {
     let engine = Engine::default();
@@ -29,12 +29,10 @@ fn main() {
     let mut store = Store::new(&engine, 42);
     let instance = linker
         .instantiate(&mut store, &module)
-        .expect("failed to instantiate")
-        .start(&mut store)
-        .expect("Failed to start");
+        .expect("failed to instantiate");
 
     let fib = instance
-        .get_typed_func::<i32, i32>(&store, "fib")
+        .get_typed_func::<i32, i32>(&mut store, "fib")
         .expect("Failed to get typed_func");
     let res = fib.call(&mut store, iters).expect("Failed to call");
     env::log(&format!("fib {} - {}", iters, res));
